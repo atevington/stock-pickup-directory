@@ -11,7 +11,7 @@ const init = async () => {
   const username = process.env.RH_USER;
   const password = process.env.RH_PASSWORD;
   const browser = await puppeteer.launch({
-    headless: !authOnly,
+    headless: false,
     defaultViewport: null,
     args: ["--start-maximized"],
   });
@@ -22,12 +22,7 @@ const init = async () => {
 
   console.log("Logging in...");
 
-  await login(
-    page,
-    username,
-    password,
-    authOnly ? 60 * 5 * 1000 : 60 * 0.5 * 1000
-  );
+  await login(page, username, password, 60 * 1000 * (authOnly ? 5 : 0.5));
 
   console.log("Logged in...");
 
@@ -63,15 +58,17 @@ const processFile = async (page, password, filePath) => {
     const { symbol, quantity } = JSON.parse(await fs.readFile(filePath));
 
     console.log(
-      `${
-        quantity < 0 ? "Selling" : "Buying"
-      } ${quantity} share(s) of ${symbol}...`
+      `${quantity < 0 ? "Selling" : "Buying"} ${Math.abs(
+        quantity
+      )} share(s) of ${symbol}...`
     );
 
     await marketTransaction(page, password, symbol, quantity);
 
     console.log(
-      `${quantity < 0 ? "Sold" : "Bought"} ${quantity} share(s) of ${symbol}...`
+      `${quantity < 0 ? "Sold" : "Bought"} ${Math.abs(
+        quantity
+      )} share(s) of ${symbol}...`
     );
 
     await fs.copyFile(
@@ -201,6 +198,7 @@ const marketTransaction = async (page, password, symbol, quantity) => {
   await pause(500);
 
   if ((await page.$(tabSelector)) !== null) {
+    await page.waitForSelector(tabSelector);
     await page.click(tabSelector);
     await pause(500);
   }

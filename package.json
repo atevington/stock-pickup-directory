@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "auth": "node index.js auth",
+    "authorize": "node index.js auth",
     "start": "node index.js"
   },
   "author": "",
