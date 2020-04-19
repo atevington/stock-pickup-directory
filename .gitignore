@@ -1,0 +1,7 @@
+.env
+cookies.json
+order-test.json
+done/*.json
+error/*.json
+new/*.json
+node_modules/*

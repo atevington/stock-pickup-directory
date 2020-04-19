@@ -1,0 +1,17 @@
+{
+  "name": "stock-pickup-directory",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "auth": "node index.js auth",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chokidar": "^3.3.1",
+    "dotenv": "^8.2.0",
+    "puppeteer": "^3.0.0"
+  }
+}
