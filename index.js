@@ -213,7 +213,7 @@ const marketTransaction = async (page, password, symbol, quantity) => {
     await page.click(tabSelector);
     await pause(500);
   } else if (quantity < 0) {
-    throw new Error(`Cannot sell '${symbol}!'`);
+    throw new Error(`Cannot sell '${symbol}'!`);
   }
 
   await page.waitForSelector(proceedSelector);
