@@ -5,6 +5,9 @@ const path = require("path");
 const puppeteer = require("puppeteer");
 const { promises: fs } = require("fs");
 
+const logMessage = (message, ...rest) =>
+  console.log(new Date(), message, ...rest);
+
 const init = async () => {
   const queue = [];
   const cookieFileName = "cookies.json";
@@ -26,13 +29,15 @@ const init = async () => {
 
   await loadCookies(page, cookieFileName);
 
-  console.log("Logging in...");
+  logMessage("Logging in...");
 
   await login(page, username, password, 60 * 1000 * (authOnly ? 5 : 0.5));
 
-  console.log("Logged in...");
+  logMessage("Logged in...");
 
   await saveCookies(page, cookieFileName);
+
+  logMessage("Saved cookies...");
 
   if (!authOnly) {
     const watchFolder = path.join(__dirname, "new");
@@ -44,7 +49,7 @@ const init = async () => {
       })
       .on("add", (filePath) => queue.push(filePath));
 
-    console.log(`Watching folder ${watchFolder}...`);
+    logMessage(`Watching folder ${watchFolder}...`);
 
     let processing = false;
 
@@ -57,7 +62,7 @@ const init = async () => {
       await processFile(page, password, queue.shift());
       await saveCookies(page, cookieFileName);
       processing = false;
-    }, 1000);
+    }, 2000);
   } else {
     await logout(page);
     await saveCookies(page, cookieFileName);
@@ -69,12 +74,12 @@ const processFile = async (page, password, filePath) => {
   const processedTime = new Date().getTime();
   const baseFileName = path.basename(filePath);
 
-  console.log(`Processing file ${baseFileName}...`);
+  logMessage(`Processing file ${baseFileName}...`);
 
   try {
     const { symbol, quantity } = JSON.parse(await fs.readFile(filePath));
 
-    console.log(
+    logMessage(
       `${quantity < 0 ? "Selling" : "Buying"} ${Math.abs(
         quantity
       )} share(s) of ${symbol}...`
@@ -82,7 +87,7 @@ const processFile = async (page, password, filePath) => {
 
     await marketTransaction(page, password, symbol, quantity);
 
-    console.log(
+    logMessage(
       `${quantity < 0 ? "Sold" : "Bought"} ${Math.abs(
         quantity
       )} share(s) of ${symbol}...`
@@ -93,9 +98,9 @@ const processFile = async (page, password, filePath) => {
       path.join(__dirname, "done", `done-${processedTime}-${baseFileName}`)
     );
 
-    console.log(`Copied file ${baseFileName} to 'done' folder...`);
+    logMessage(`Copied file ${baseFileName} to 'done' folder...`);
   } catch (e) {
-    console.log(`Error processing file ${baseFileName}...`, e);
+    logMessage(`Error processing file ${baseFileName}...`, e);
 
     try {
       await fs.copyFile(
@@ -103,7 +108,7 @@ const processFile = async (page, password, filePath) => {
         path.join(__dirname, "error", `error-${processedTime}-${baseFileName}`)
       );
 
-      console.log(`Copied file ${baseFileName} to 'error' folder...`);
+      logMessage(`Copied file ${baseFileName} to 'error' folder...`);
 
       await fs.writeFile(
         path.join(
@@ -115,7 +120,7 @@ const processFile = async (page, password, filePath) => {
         "utf8"
       );
 
-      console.log(
+      logMessage(
         `Copied file ${baseFileName} to 'error' folder with message...`
       );
     } catch (e) {}
@@ -123,7 +128,7 @@ const processFile = async (page, password, filePath) => {
 
   try {
     await fs.unlink(filePath);
-    console.log(`Deleted ${baseFileName}...`);
+    logMessage(`Deleted ${baseFileName}...`);
   } catch (e) {}
 };
 
@@ -143,33 +148,26 @@ const saveCookies = async (page, fileName) => {
   } catch (e) {}
 };
 
+const clearFieldAndType = async (page, selector, text, pauseLength) => {
+  await page.waitForSelector(selector);
+  await page.focus(selector);
+  await page.keyboard.down("Control");
+  await page.keyboard.press("A");
+  await page.keyboard.up("Control");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.type(text, { delay: 25 });
+  await pause(pauseLength);
+};
+
 const login = async (page, username, password, afterLoginPause) => {
   const userNameSelector = "input[name='username']";
   const passwordSelector = "input[name='password']";
   const buttonSelector = "button[type='submit']";
   const successSelector = "div[data-page-name='home']";
-  const typeOptions = { delay: 25 };
 
   await page.goto("https://robinhood.com/login");
-
-  await page.waitForSelector(userNameSelector);
-  await page.focus(userNameSelector);
-  await page.keyboard.down("Control");
-  await page.keyboard.press("A");
-  await page.keyboard.up("Control");
-  await page.keyboard.press("Backspace");
-  await page.keyboard.type(username, typeOptions);
-  await pause(500);
-
-  await page.waitForSelector(passwordSelector);
-  await page.focus(passwordSelector);
-  await page.keyboard.down("Control");
-  await page.keyboard.press("A");
-  await page.keyboard.up("Control");
-  await page.keyboard.press("Backspace");
-  await page.keyboard.type(password, typeOptions);
-  await pause(500);
-
+  await clearFieldAndType(page, userNameSelector, username, 500);
+  await clearFieldAndType(page, passwordSelector, password, 500);
   await page.click(buttonSelector);
   await page.waitForSelector(successSelector, { timeout: afterLoginPause });
 };
@@ -201,23 +199,21 @@ const marketTransaction = async (page, password, symbol, quantity) => {
   const submitSelector =
     "form[data-testid='OrderForm'] [data-testid='OrderFormControls-Submit']";
 
-  const typeOptions = { delay: 25 };
-
   await page.goto(`https://robinhood.com/stocks/${symbol}`);
 
-  await page.waitForSelector(quantitySelector);
-  await page.focus(quantitySelector);
-  await page.keyboard.down("Control");
-  await page.keyboard.press("A");
-  await page.keyboard.up("Control");
-  await page.keyboard.press("Backspace");
-  await page.keyboard.type(Math.abs(quantity).toString(), typeOptions);
-  await pause(500);
+  await clearFieldAndType(
+    page,
+    quantitySelector,
+    Math.abs(quantity).toString(),
+    500
+  );
 
   if ((await page.$(tabSelector)) !== null) {
     await page.waitForSelector(tabSelector);
     await page.click(tabSelector);
     await pause(500);
+  } else if (quantity < 0) {
+    throw new Error(`Cannot sell '${symbol}!'`);
   }
 
   await page.waitForSelector(proceedSelector);
@@ -229,15 +225,7 @@ const marketTransaction = async (page, password, symbol, quantity) => {
   await pause(2000);
 
   if ((await page.$(passwordSelector)) !== null) {
-    await page.waitForSelector(passwordSelector);
-    await page.focus(passwordSelector);
-    await page.keyboard.down("Control");
-    await page.keyboard.press("A");
-    await page.keyboard.up("Control");
-    await page.keyboard.press("Backspace");
-    await page.keyboard.type(password, typeOptions);
-    await pause(500);
-
+    await clearFieldAndType(page, passwordSelector, password, 500);
     await page.click(confirmSelector);
     await pause(2000);
   }
