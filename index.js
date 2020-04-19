@@ -11,9 +11,14 @@ const init = async () => {
   const username = process.env.RH_USER;
   const password = process.env.RH_PASSWORD;
   const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: null,
-    args: ["--start-maximized"],
+    headless: !authOnly,
+    defaultViewport: !authOnly
+      ? {
+          width: 1920,
+          height: 1080,
+        }
+      : null,
+    args: !authOnly ? [] : ["--start-maximized"],
   });
 
   const page = await browser.newPage();
