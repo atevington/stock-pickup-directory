@@ -6,6 +6,7 @@ const puppeteer = require("puppeteer");
 const { promises: fs } = require("fs");
 
 const init = async () => {
+  const queue = [];
   const cookieFileName = "cookies.json";
   const authOnly = process.argv[2] === "auth";
   const username = process.env.RH_USER;
@@ -41,12 +42,22 @@ const init = async () => {
         awaitWriteFinish: true,
         ignoreInitial: true,
       })
-      .on("add", async (filePath) => {
-        await processFile(page, password, filePath);
-        await saveCookies(page, cookieFileName);
-      });
+      .on("add", (filePath) => queue.push(filePath));
 
     console.log(`Watching folder ${watchFolder}...`);
+
+    let processing = false;
+
+    setInterval(async () => {
+      if (processing || queue.length === 0) {
+        return;
+      }
+
+      processing = true;
+      await processFile(page, password, queue.shift());
+      await saveCookies(page, cookieFileName);
+      processing = false;
+    }, 1000);
   } else {
     await logout(page);
     await browser.close();
