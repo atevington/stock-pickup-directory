@@ -60,6 +60,7 @@ const init = async () => {
     }, 1000);
   } else {
     await logout(page);
+    await saveCookies(page, cookieFileName);
     await browser.close();
   }
 };
